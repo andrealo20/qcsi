@@ -58,7 +58,7 @@ Raw CSI phase from a single antenna is unusable. Each packet carries an
 unknown carrier frequency offset (CFO) and sampling frequency offset (SFO).
 For antenna $a$, the measured phase at subcarrier $k$ is
 
-$$\phi_a[k] = \phi^{\text{phys}}_a[k] + \underbrace{\theta_{\text{cfo}}}_{\text{random per packet}} + \underbrace{\beta_{\text{sfo}} \, k}_{\text{random slope}}$$
+$$\phi_a[k] = \phi^{\text{phys}}_a[k] + \underbrace{\theta_{\text{cfo}}}_{\text{random per packet}} + \underbrace{\beta_{\text{sfo}} k}_{\text{random slope}}$$
 
 so two packets of an identical static scene can have completely different raw
 phase. This is why most published work discards phase and keeps only
@@ -78,7 +78,7 @@ local oscillator and one shared sampling clock**, so they are identical
 across the antennas of the same receiver. Multiplying antenna $a$ by the
 conjugate of antenna $b$ cancels them exactly:
 
-$$\angle\left(H_a[k] \, \overline{H_b[k]}\right) = \phi^{\text{phys}}_a[k] - \phi^{\text{phys}}_b[k]$$
+$$\angle\left(H_a[k] \overline{H_b[k]}\right) = \phi^{\text{phys}}_a[k] - \phi^{\text{phys}}_b[k]$$
 
 One complex multiply, no estimation step, nothing to tune. That identity is
 the core of the library.
