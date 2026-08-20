@@ -13,7 +13,7 @@
 Built on [qdsp](https://github.com/andrealo20/qdsp), which supplies the
 fixed-point arithmetic, filters and FFT. `qcsi` adds what is specific to
 Channel State Information: phase sanitisation, feature extraction, and a
-quantised classifier — all in C99, with no dynamic allocation and no floating
+quantised classifier; all in C99, with no dynamic allocation and no floating
 point on the processing path.
 
 43 unit tests. Clean under `-Wall -Wextra -Wpedantic -Wconversion -Werror`,
@@ -24,8 +24,8 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
 ## What problem this solves
 
 A body moving through a room perturbs the Wi-Fi channel measurably. Every
-received frame exposes the channel response across tens of subcarriers — the
-CSI — and a sequence of frames carries the signature of the motion. That is
+received frame exposes the channel response across tens of subcarriers, the
+CSI, and a sequence of frames carries the signature of the motion. That is
 the basis for activity recognition, fall detection and vital-sign monitoring
 with no cameras and nothing worn.
 
@@ -71,7 +71,7 @@ raw phase anywhere in $[-\pi, \pi)$; on the right the conjugate product
 cancels it and all twelve land on the same curve, the dashed reference. The
 figure computes the conjugate product rather than asserting it, and uses two
 distinct physical responses so the recovered quantity really is a difference.
-Generated data — legitimate for showing an identity, not as evidence.*
+Generated data, legitimate for showing an identity, not as evidence.*
 
 But $\theta_{\text{cfo}}$ and $\beta_{\text{sfo}}$ come from **one shared
 local oscillator and one shared sampling clock**, so they are identical
@@ -83,7 +83,7 @@ $$\angle\left(H_a[k] \, \overline{H_b[k]}\right) = \phi^{\text{phys}}_a[k] - \ph
 One complex multiply, no estimation step, nothing to tune. That identity is
 the core of the library.
 
-### It holds - but only for one antenna pair
+### It holds but only for one antenna pair
 
 ![Reduction by antenna pair](docs/images/antenna_pairs.png)
 
@@ -98,7 +98,7 @@ Measured on SignFi (Intel 5300, 1500 captures, median within capture):
 | rx0 – rx2 | 1.1× | 0.97× |
 | rx1 – rx2 | 1.1× | 0.97× |
 
-Antenna imbalance does not explain the pattern — mean amplitudes were 74.0,
+Antenna imbalance does not explain the pattern, mean amplitudes were 74.0,
 74.3 and 96.6, so all three were receiving well. **Why the third antenna does
 not share the impairment is not established**, and is recorded as open rather
 than guessed at in [`docs/design.md`](docs/design.md). The practical
@@ -118,7 +118,7 @@ at the seam. Unwrapping reduces to
 $$\Phi[0] = \phi[0], \qquad \Phi[k] = \Phi[k-1] + \big(\phi[k] - \phi[k-1]\big)_{\bmod 2^{16}}$$
 
 `atan2` and magnitude come from a **CORDIC** in vectoring mode: only shifts,
-adds and a small table — no multiplications, no division — which is what
+adds and a small table, no multiplications, no division, which is what
 makes it right for a core without a hardware multiplier. One pass yields both.
 
 | Measurement | Result |
@@ -171,7 +171,7 @@ range from the start.
 
 The paired design is what made this measurable. The Q8 change is −0.22
 points, while the standard error of a difference between two independent
-accuracy estimates here is 1.47 points — it would have been invisible.
+accuracy estimates here is 1.47 points, it would have been invisible.
 Counting 71 disagreements out of 2250 leaves no ambiguity.
 
 ---
