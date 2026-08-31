@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     qdsp
     GIT_REPOSITORY https://github.com/andrealo20/qdsp.git
-    GIT_TAG        main
+    GIT_TAG        0393071f32b56804723188567f4a858268f96144
 )
 set(QDSP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(QDSP_BENCH      OFF CACHE BOOL "" FORCE)

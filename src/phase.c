@@ -23,6 +23,22 @@ void qcsi_polar_q15(q15_t re, q15_t im, q15_t *mag, qcsi_angle_t *angle)
     int32_t z = 0;
     int i;
 
+    if (x == 0 && y == 0) {
+        /* The CORDIC loop below has no fixed point at the origin: with
+           x == y == 0 every iteration takes the "y <= 0" branch (since y is
+           never > 0) and subtracts qcsi_cordic_atan[i] regardless, so z
+           drifts to a large, deterministic but meaningless angle instead of
+           the conventional atan2(0, 0) = 0. Magnitude is unaffected (0
+           either way), but angle needs an explicit fixed point here. */
+        if (angle != NULL) {
+            *angle = 0;
+        }
+        if (mag != NULL) {
+            *mag = 0;
+        }
+        return;
+    }
+
     if (x < 0) {
         /* Fold into the right half-plane. Rotating by pi is exact. */
         x = -x;

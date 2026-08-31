@@ -21,11 +21,19 @@ qdsp_status_t qcsi_pipeline_init(qcsi_pipeline *p,
     if (p == NULL || cfg == NULL) {
         return QDSP_ERR_ARG;
     }
+    /* build_features() below reads doppler[d + 1] for d in [0, n_doppler),
+       i.e. spectrum indices [1, n_doppler] -- it skips bin 0 (the static
+       component) and keeps the next n_doppler bins. qcsi_doppler_power()
+       only ever writes indices [0, n_fft/2), so the highest index actually
+       read, n_doppler, must stay below n_fft/2: n_doppler == n_fft/2 reads
+       one bin past what was written (and, at n_fft == QCSI_MAX_FFT, one
+       q31_t past the end of the doppler[] array itself). Hence the strict
+       "<" rather than "<=" here. */
     if (cfg->n_sub == 0u || cfg->n_sub > QCSI_MAX_SUBCARRIERS ||
         cfg->n_frames < 2u || cfg->n_frames > QCSI_MAX_WINDOW ||
         cfg->n_fft > QCSI_MAX_FFT || !qdsp_fft_size_is_valid(cfg->n_fft) ||
         (uint32_t)cfg->n_fft < cfg->n_frames ||
-        cfg->n_doppler == 0u || cfg->n_doppler > (uint16_t)(cfg->n_fft / 2u)) {
+        cfg->n_doppler == 0u || cfg->n_doppler >= (uint16_t)(cfg->n_fft / 2u)) {
         return QDSP_ERR_ARG;
     }
     /* The antenna pair must be two distinct antennas that exist. Equal
