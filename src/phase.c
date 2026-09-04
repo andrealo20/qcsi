@@ -178,7 +178,7 @@ qdsp_status_t qcsi_detrend(int32_t *phase, size_t n, int32_t *slope_q16)
     /* Slope in Q16, so a fractional slope survives integer division.
        Multiplication rather than "<< 16" because num and sum_y are signed
        and can be negative, and left-shifting a negative value is undefined
-       behaviour in C99 — caught here by the UBSan job, exactly as it was in
+       behaviour in C99, caught here by the UBSan job, exactly as it was in
        qdsp. Same mistake, same class, second repository. */
     num = nn * sum_iy - sum_i * sum_y;
     slope = (num * 65536) / denom;

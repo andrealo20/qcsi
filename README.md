@@ -94,9 +94,9 @@ Measured on SignFi (Intel 5300, 1500 captures, median within capture):
 
 | Antenna pair | Offset reduction | Slope reduction |
 |---|---|---|
-| **rx0 – rx1** | **2.5×** | **1.52×** |
-| rx0 – rx2 | 1.1× | 0.97× |
-| rx1 – rx2 | 1.1× | 0.97× |
+| **rx0, rx1** | **2.5×** | **1.52×** |
+| rx0, rx2 | 1.1× | 0.97× |
+| rx1, rx2 | 1.1× | 0.97× |
 
 Antenna imbalance does not explain the pattern, mean amplitudes were 74.0,
 74.3 and 96.6, so all three were receiving well. **Why the third antenna does
@@ -139,7 +139,7 @@ counted, rather than two independent accuracies being compared.
 ![Quantisation sweep](docs/images/quantisation.png)
 
 *Left: accuracy against word length, with the float reference dashed. Right:
-the same disagreements split by decision margin — the Q15 and Q12 bars are
+the same disagreements split by decision margin, the Q15 and Q12 bars are
 zero rather than missing. Disagreements stay entirely in the narrow-margin
 half until Q6, which is the signature of precision loss.*
 
@@ -149,7 +149,7 @@ features. This is not the configuration the cost table further down uses.
 
 | Word length | Accuracy | Change | Disagreements | Narrow margin | Wide margin |
 |---|---|---|---|---|---|
-| float | 42.27% | — | — | — | — |
+| float | 42.27% | n/a | n/a | n/a | n/a |
 | **Q15** | **42.27%** | **+0.00** | **0** | 0.00% | 0.00% |
 | Q12 | 42.27% | +0.00 | 2 | 0.18% | 0.00% |
 | Q10 | 42.18% | −0.09 | 19 | 1.69% | 0.00% |
@@ -163,7 +163,7 @@ features. This is not the configuration the cost table further down uses.
 16-bit fixed point is not a compromise here at all.
 
 **Q8 costs 0.22 points.** For a linear model the weight table dominates
-memory, so halving the word length halves it — nearly free on this task.
+memory, so halving the word length halves it, nearly free on this task.
 
 **The breakdown is orderly, and that is itself evidence.** Disagreements sit
 entirely in the narrow-margin half down to Q7 and only spread to wide margins
@@ -187,7 +187,7 @@ Counting 71 disagreements out of 2250 leaves no ambiguity.
 
 The cross-subject figure is the honest result: performance on a person never
 seen in training. The within-subject figure is **not comparable** to it, nor
-to published SignFi accuracies unless those used the same kind of split —
+to published SignFi accuracies unless those used the same kind of split,
 most are within-subject and much higher. This is a linear classifier on 166
 features doing cross-subject recognition over 150 classes, which is a
 substantially harder problem, and the point of the library is the fixed-point
@@ -266,7 +266,7 @@ cmake --build build-bench --parallel && ./build-bench/bench/qcsi_bench
 ## Reproducing the measurements
 
 Needs [SignFi](https://github.com/yongsen/SignFi) `dataset_lab_150.mat`
-(1.93 GB, five users — the only file in that set that allows a subject-wise
+(1.93 GB, five users, the only file in that set that allows a subject-wise
 split).
 
 ```sh
@@ -290,8 +290,8 @@ against that exact split, so an accuracy change means the pipeline changed
 and not the shuffle.
 
 **Not every CSI dataset works.** UT-HAR's published CSVs, for instance, apply
-`phase_calibration.m` before writing — unwrapping and detrending on a single
-antenna, upstream — which leaves this front end with nothing to remove. Step
+`phase_calibration.m` before writing, unwrapping and detrending on a single
+antenna, upstream, which leaves this front end with nothing to remove. Step
 1 exists to catch that in ten seconds rather than at step 3.
 
 ---
@@ -339,7 +339,7 @@ Stated because they are the parts a reader should not have to discover:
 - **Why only one antenna pair works** on SignFi is unexplained.
 - **Per-antenna hardware phase offsets** are not removed by the conjugate
   product and would need calibration or a reference antenna.
-- **Cross-environment generalisation is untested** — everything here is the
+- **Cross-environment generalisation is untested**: everything here is the
   lab recording.
 - **The accuracy is modest.** A linear model on 166 features is a reference
   point for measuring quantisation, not a competitive classifier.
@@ -349,11 +349,11 @@ Stated because they are the parts a reader should not have to discover:
 ## Design notes
 
 Every non-obvious decision, the trade-off behind it, and the measurement that
-justifies it are in [`docs/design.md`](docs/design.md) — including three
+justifies it are in [`docs/design.md`](docs/design.md), including three
 measurement errors that each initially looked like evidence against a method
 that was working, and one data-loading bug that would have produced a
 confident meaningless number instead of a crash.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

@@ -2,7 +2,7 @@
  * @file classify.h
  * @brief Quantised linear classifier for fixed-point feature vectors.
  *
- * A linear model — one dot product per class, then argmax. That is a modest
+ * A linear model, one dot product per class, then argmax. That is a modest
  * choice and a deliberate one: it keeps the whole pipeline's cost visible
  * and interpretable, and when the fixed-point result diverges from the
  * floating-point reference the cause is arithmetic rather than training

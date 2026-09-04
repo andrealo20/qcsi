@@ -38,8 +38,8 @@ qdsp_status_t qcsi_amplitude_stats(const q15_t *window, size_t n_frames,
         /* Variance as (n*sum_sq - sum^2) / n^2, not as E[x^2] - mean^2.
            The two are algebraically identical but not numerically: the
            second form squares an integer-truncated mean, and that truncation
-           error is multiplied by the mean itself. On a CSI amplitude — a
-           small ripple sitting on a large static component — the inflation
+           error is multiplied by the mean itself. On a CSI amplitude, a
+           small ripple sitting on a large static component, the inflation
            is larger than the quantity being measured. Measured on a 1%
            ripple at 0.9 mean, the truncated form overestimated the spread by
            10%; this one is within 1%.

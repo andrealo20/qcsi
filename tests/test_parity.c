@@ -203,7 +203,7 @@ static void test_predictions_match_the_reference(void)
  *
  * The two paths through qcsi_pipeline_push() differ only in what they return,
  * and this is what says the feature path does not depend on a model being
- * attached — which is the mode the tools use to collect training data on
+ * attached, which is the mode the tools use to collect training data on
  * target, so it is the mode the reference has to match.
  */
 static void test_features_are_the_same_without_a_model(void)

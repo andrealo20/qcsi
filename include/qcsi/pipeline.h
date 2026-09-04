@@ -12,8 +12,8 @@
  * One context struct holds every buffer, and the caller supplies it. There
  * is no allocation anywhere, and no hidden state: two contexts can run
  * concurrently on different antenna pairs or different windows without
- * interfering. The struct is large — it is dominated by the window and the
- * FFT scratch — so it belongs in static storage rather than on a stack.
+ * interfering. The struct is large: it is dominated by the window and the
+ * FFT scratch, so it belongs in static storage rather than on a stack.
  *
  * `qcsi_pipeline_footprint()` reports the byte count, because a number a
  * caller can query is more useful than one buried in a header comment, and

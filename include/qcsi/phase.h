@@ -88,7 +88,7 @@ q15_t qcsi_magnitude_q15(q15_t re, q15_t im);
 /* ------------------------------------------------------------------ */
 
 /**
- * a * conj(b) — the product whose phase is the phase difference a - b.
+ * a * conj(b), the product whose phase is the phase difference a - b.
  *
  * This is the operation that removes CFO and SFO: both antennas share the
  * same oscillator and the same sampling clock, so the offending terms are

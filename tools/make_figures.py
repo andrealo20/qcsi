@@ -153,8 +153,8 @@ def fig_phase_illustration(outdir):
     plus a shared per-packet impairment, and the conjugate product is then
     computed rather than asserted. An earlier version plotted the physical
     phase directly and labelled it "after the conjugate product", which was
-    true only because the second antenna had been given zero physical phase
-    — a coincidence stated in prose instead of shown by the arithmetic.
+    true only because the second antenna had been given zero physical phase,
+    a coincidence stated in prose instead of shown by the arithmetic.
 
     Generated data is legitimate here because the figure explains an
     identity. It would not be legitimate as evidence, and the caption says
