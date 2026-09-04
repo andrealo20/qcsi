@@ -54,7 +54,7 @@ extern "C" {
 /** Indices into the per-subcarrier statistics block. */
 typedef enum {
     QCSI_STAT_MEAN = 0,   /**< mean amplitude over the window, Q15 */
-    QCSI_STAT_VAR  = 1,   /**< standard deviation, Q15 (not variance) */
+    QCSI_STAT_STD  = 1,   /**< standard deviation, Q15 */
     QCSI_STAT_PTP  = 2    /**< peak-to-peak spread, Q15 */
 } qcsi_stat_t;
 
@@ -127,9 +127,45 @@ qdsp_status_t qcsi_doppler_power(const q15_t *window, size_t n_frames,
  * Index of the strongest non-DC Doppler bin.
  *
  * A crude but useful summary of a window: roughly, how fast the dominant
- * motion is. Returns 0 if the spectrum is empty or flat.
+ * motion is.
+ *
+ * Bin 0 is never a candidate, so a successful call returns an index in
+ * [1, n_bins) and a flat spectrum returns 1. The value 0 is reserved for the
+ * argument errors, a null pointer or fewer than two bins, and therefore
+ * distinguishes them rather than colliding with a real answer.
  */
 size_t qcsi_dominant_doppler_bin(const q31_t *power, size_t n_bins);
+
+/* ------------------------------------------------------------------ */
+/* Logarithmic compression                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * log(1 + x) in Q10, for a non-negative integer x.
+ *
+ * Doppler power spans several decades within one window, so a linear
+ * classifier fed raw power is driven entirely by the loudest bin. The
+ * floating-point reference in tools/qcsi_data.py compresses it with
+ * numpy.log1p; this is the fixed-point equivalent, and it exists so that the
+ * two pipelines compute the same feature rather than two different ones.
+ *
+ * The argument is a plain integer, not a fraction: the quantity being
+ * compressed is a power that has already been accumulated in 64 bits, and
+ * scaling it into Q15 first would throw away exactly the small bins the
+ * compression is there to preserve.
+ *
+ * Method: floor(log2(x + 1)) from the position of the highest set bit, plus
+ * log2 of the mantissa from a 33-entry table with linear interpolation, then
+ * a multiply by ln 2. Only integer shifts, adds, compares and two multiplies;
+ * no floating point and no division.
+ *
+ * Accuracy: at most 1 LSB of Q10, which is 0.001 nats. Measured maximum over
+ * every x below 4096, every power of two and every power of two minus one up
+ * to 2^43, and 200000 pseudo-random values in [0, 2^43): 0.62 LSB.
+ *
+ * @return Q10, so 1024 is one nat. Non-negative, and 0 exactly when x is 0.
+ */
+int32_t qcsi_log1p_q10(uint64_t x);
 
 #ifdef __cplusplus
 }

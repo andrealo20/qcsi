@@ -67,7 +67,7 @@ static void test_constant_subcarrier_has_zero_spread(void)
         TEST_ASSERT_INT16_WITHIN(2, qdsp_f32_to_q15(0.3f),
             stats[k * QCSI_STATS_PER_SUBCARRIER + QCSI_STAT_MEAN]);
         TEST_ASSERT_EQUAL_INT16(0,
-            stats[k * QCSI_STATS_PER_SUBCARRIER + QCSI_STAT_VAR]);
+            stats[k * QCSI_STATS_PER_SUBCARRIER + QCSI_STAT_STD]);
         TEST_ASSERT_EQUAL_INT16(0,
             stats[k * QCSI_STATS_PER_SUBCARRIER + QCSI_STAT_PTP]);
     }
@@ -109,7 +109,7 @@ static void test_std_matches_a_double_reference(void)
     mean = sum / (double)NFRAMES;
     var_ref = sum_sq / (double)NFRAMES - mean * mean;
     std_ref = sqrt(var_ref);
-    std_got = (double)stats[QCSI_STAT_VAR];
+    std_got = (double)stats[QCSI_STAT_STD];
 
     printf("  [measured] std: %.1f (reference %.1f), ratio %.4f\n",
            std_got, std_ref, std_got / std_ref);
@@ -135,11 +135,11 @@ static void test_small_ripple_on_a_large_mean_survives(void)
             qcsi_amplitude_stats(window, NFRAMES, NSUB, stats));
 
         printf("  [measured] ripple %.3f -> std %d (expected %.1f)\n",
-               ripples[i], (int)stats[QCSI_STAT_VAR], expected);
-        TEST_ASSERT_TRUE_MESSAGE(stats[QCSI_STAT_VAR] > 0,
+               ripples[i], (int)stats[QCSI_STAT_STD], expected);
+        TEST_ASSERT_TRUE_MESSAGE(stats[QCSI_STAT_STD] > 0,
                                  "spread collapsed to zero");
         TEST_ASSERT_TRUE_MESSAGE(
-            fabs((double)stats[QCSI_STAT_VAR] - expected) / expected < 0.05,
+            fabs((double)stats[QCSI_STAT_STD] - expected) / expected < 0.05,
             "spread off by more than 5%");
     }
     TEST_ASSERT_INT16_WITHIN(200, qdsp_f32_to_q15(0.90f), stats[QCSI_STAT_MEAN]);
@@ -262,12 +262,89 @@ static void test_doppler_zero_padding_scales_the_peak_position(void)
                               (uint32_t)found_padded);
 }
 
+/**
+ * Bin 0 is never a candidate, so it is free to mean "bad arguments" — but
+ * only if a flat spectrum returns something else. It used to return 0 for
+ * both, which made the two indistinguishable and contradicted the promise
+ * that bin 0 is skipped.
+ */
 static void test_dominant_bin_handles_degenerate_input(void)
 {
     static const q31_t flat[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    static const q31_t dc_only[8] = { 1000, 0, 0, 0, 0, 0, 0, 0 };
+
     TEST_ASSERT_EQUAL_UINT32(0u, (uint32_t)qcsi_dominant_doppler_bin(NULL, 8));
     TEST_ASSERT_EQUAL_UINT32(0u, (uint32_t)qcsi_dominant_doppler_bin(flat, 1));
-    TEST_ASSERT_EQUAL_UINT32(0u, (uint32_t)qcsi_dominant_doppler_bin(flat, 8));
+    /* Nothing to choose between: the first candidate bin, not bin 0. */
+    TEST_ASSERT_EQUAL_UINT32(1u, (uint32_t)qcsi_dominant_doppler_bin(flat, 8));
+    /* All the energy in the bin the function refuses to return. */
+    TEST_ASSERT_EQUAL_UINT32(1u,
+        (uint32_t)qcsi_dominant_doppler_bin(dc_only, 8));
+}
+
+/* ------------------------------------------------------------------ */
+/* Logarithmic compression                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * qcsi_log1p_q10() against log1p() from libm.
+ *
+ * The tolerance is the one the header states, one LSB of Q10, and it is
+ * checked over the range the Doppler path actually produces: every small
+ * value, where log1p differs most from log, and every power of two up to the
+ * largest power a 64-point transform of full-scale Q15 amplitudes can reach.
+ */
+static void test_log1p_matches_libm(void)
+{
+    uint64_t x;
+    int i;
+    double worst = 0.0;
+    uint64_t worst_at = 0u;
+
+    for (x = 0u; x < 4096u; ++x) {
+        double e = fabs((double)qcsi_log1p_q10(x) - log1p((double)x) * 1024.0);
+        if (e > worst) { worst = e; worst_at = x; }
+    }
+    for (i = 0; i <= 43; ++i) {
+        uint64_t p = (uint64_t)1 << i;
+        uint64_t cases[3];
+        int j;
+        cases[0] = p - 1u;
+        cases[1] = p;
+        cases[2] = p + 1u;
+        for (j = 0; j < 3; ++j) {
+            double e = fabs((double)qcsi_log1p_q10(cases[j]) -
+                            log1p((double)cases[j]) * 1024.0);
+            if (e > worst) { worst = e; worst_at = cases[j]; }
+        }
+    }
+
+    printf("  [measured] log1p worst error %.3f Q10 LSB (%.6f nats), "
+           "at x = %llu\n", worst, worst / 1024.0,
+           (unsigned long long)worst_at);
+    TEST_ASSERT_TRUE_MESSAGE(worst <= 1.0,
+                             "log1p is off by more than one Q10 LSB");
+}
+
+/**
+ * The two properties the Doppler feature relies on: zero maps to zero, so a
+ * silent bin stays silent, and the function is monotone, so ordering bins by
+ * the compressed value orders them by power.
+ */
+static void test_log1p_is_zero_at_zero_and_monotone(void)
+{
+    uint64_t x;
+    int32_t prev;
+
+    TEST_ASSERT_EQUAL_INT32(0, qcsi_log1p_q10(0u));
+    TEST_ASSERT_TRUE(qcsi_log1p_q10(1u) > 0);
+
+    prev = -1;
+    for (x = 0u; x < 100000u; x += 7u) {
+        int32_t v = qcsi_log1p_q10(x);
+        TEST_ASSERT_TRUE(v >= prev);
+        prev = v;
+    }
 }
 
 int main(void)
@@ -285,5 +362,7 @@ int main(void)
     RUN_TEST(test_doppler_ignores_the_static_component);
     RUN_TEST(test_doppler_zero_padding_scales_the_peak_position);
     RUN_TEST(test_dominant_bin_handles_degenerate_input);
+    RUN_TEST(test_log1p_matches_libm);
+    RUN_TEST(test_log1p_is_zero_at_zero_and_monotone);
     return UNITY_END();
 }

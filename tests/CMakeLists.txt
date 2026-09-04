@@ -9,7 +9,7 @@ FetchContent_MakeAvailable(unity)
 
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE)
 
-set(QCSI_TEST_MODULES phase features classify pipeline)
+set(QCSI_TEST_MODULES phase features classify pipeline parity)
 
 foreach(mod IN LISTS QCSI_TEST_MODULES)
     add_executable(test_${mod} test_${mod}.c)

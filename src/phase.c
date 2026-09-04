@@ -48,6 +48,9 @@ void qcsi_polar_q15(q15_t re, q15_t im, q15_t *mag, qcsi_angle_t *angle)
     }
 
     for (i = 0; i < QCSI_CORDIC_ITERATIONS; ++i) {
+        /* x and y can be negative here, and right-shifting a negative signed
+           value is implementation-defined rather than undefined: see the note
+           in qcsi_detrend() below for why the two are not the same problem. */
         int32_t xs = x >> i;
         int32_t ys = y >> i;
         if (y > 0) {
@@ -184,6 +187,18 @@ qdsp_status_t qcsi_detrend(int32_t *phase, size_t n, int32_t *slope_q16)
     intercept_q16 = ((sum_y * 65536) - slope * sum_i) / nn;
 
     for (k = 0u; k < n; ++k) {
+        /* The right shift below is a different case from the left shift
+           above, and the distinction is the whole reason both appear in one
+           function. Left-shifting a negative value is *undefined*: the
+           standard gives the expression no meaning at all, and a sanitizer
+           is right to stop the program. Right-shifting one is only
+           *implementation-defined*: every implementation has to document what
+           it does, and every compiler this library is built with, and every
+           one qdsp's fixed.h asserts against at compile time, propagates the
+           sign. So the shift is portable in practice and arithmetic, which is
+           what rounding a Q16 value towards minus infinity needs; replacing
+           it with a division would round towards zero instead and change the
+           result on negative phases. */
         int64_t fit = (slope * (int64_t)k + intercept_q16 + 32768) >> 16;
         phase[k] -= (int32_t)fit;
     }

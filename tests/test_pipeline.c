@@ -82,6 +82,12 @@ static void test_init_rejects_bad_configuration(void)
 
     bad = cfg; bad.n_sub = 0;
     TEST_ASSERT_EQUAL_INT(QDSP_ERR_ARG, qcsi_pipeline_init(&p2, &bad, NULL));
+    /* One subcarrier is not merely useless, it is undefined: detrending fits
+       a line across subcarriers, and qcsi_detrend() refuses n < 2. The
+       pipeline discards that status, so accepting the configuration here
+       would leave the phase silently undetrended. */
+    bad = cfg; bad.n_sub = 1;
+    TEST_ASSERT_EQUAL_INT(QDSP_ERR_ARG, qcsi_pipeline_init(&p2, &bad, NULL));
     bad = cfg; bad.n_sub = QCSI_MAX_SUBCARRIERS + 1;
     TEST_ASSERT_EQUAL_INT(QDSP_ERR_ARG, qcsi_pipeline_init(&p2, &bad, NULL));
     bad = cfg; bad.n_fft = 30;                  /* not a power of two */
@@ -219,6 +225,16 @@ static void test_reset_clears_a_partial_window(void)
                           qcsi_pipeline_push(&pipe, frame));
 }
 
+/**
+ * Every other public entry point tolerates a null context; this one used to
+ * dereference it, which is a crash in the one function an error path is most
+ * likely to reach for.
+ */
+static void test_reset_tolerates_a_null_context(void)
+{
+    qcsi_pipeline_reset(NULL);
+}
+
 static void test_two_contexts_do_not_interfere(void)
 {
     static qcsi_pipeline other;
@@ -306,6 +322,7 @@ int main(void)
     RUN_TEST(test_features_are_available_and_sized);
     RUN_TEST(test_consecutive_windows_are_independent);
     RUN_TEST(test_reset_clears_a_partial_window);
+    RUN_TEST(test_reset_tolerates_a_null_context);
     RUN_TEST(test_two_contexts_do_not_interfere);
     RUN_TEST(test_different_motion_gives_different_features);
     RUN_TEST(test_footprint_is_reported_and_plausible);

@@ -1,5 +1,7 @@
 #include "qcsi/pipeline.h"
 
+#include "internal.h"
+
 #include <string.h>
 
 /* Features produced per window:
@@ -29,7 +31,12 @@ qdsp_status_t qcsi_pipeline_init(qcsi_pipeline *p,
        one bin past what was written (and, at n_fft == QCSI_MAX_FFT, one
        q31_t past the end of the doppler[] array itself). Hence the strict
        "<" rather than "<=" here. */
-    if (cfg->n_sub == 0u || cfg->n_sub > QCSI_MAX_SUBCARRIERS ||
+    /* n_sub must be at least 2, not merely non-zero: accumulate_phase()
+       detrends across subcarriers, and a line fit through one point has no
+       meaning. qcsi_detrend() refuses n < 2 and its status is discarded on
+       the processing path, so a single-subcarrier configuration would run
+       with the phase silently left undetrended rather than fail. */
+    if (cfg->n_sub < 2u || cfg->n_sub > QCSI_MAX_SUBCARRIERS ||
         cfg->n_frames < 2u || cfg->n_frames > QCSI_MAX_WINDOW ||
         cfg->n_fft > QCSI_MAX_FFT || !qdsp_fft_size_is_valid(cfg->n_fft) ||
         (uint32_t)cfg->n_fft < cfg->n_frames ||
@@ -69,6 +76,10 @@ qdsp_status_t qcsi_pipeline_init(qcsi_pipeline *p,
 void qcsi_pipeline_reset(qcsi_pipeline *p)
 {
     uint16_t k;
+
+    if (p == NULL) {
+        return;
+    }
     p->filled = 0u;
     for (k = 0u; k < p->cfg.n_sub; ++k) {
         p->phase_sum[k] = 0;
@@ -103,28 +114,18 @@ static void accumulate_phase(qcsi_pipeline *p, const qdsp_cplx_q15 *frame)
     }
 }
 
-/** Integer square root, as in features.c: no libm on the processing path. */
-static uint32_t isqrt64(uint64_t v)
-{
-    uint64_t rem = 0u, root = 0u;
-    int i;
-    for (i = 0; i < 32; ++i) {
-        root <<= 1;
-        rem = (rem << 2) | (v >> 62);
-        v <<= 2;
-        if (root < rem) {
-            rem -= root | 1u;
-            root += 2u;
-        }
-    }
-    return (uint32_t)(root >> 1);
-}
-
 static void build_features(qcsi_pipeline *p)
 {
     const qcsi_pipeline_config *c = &p->cfg;
     uint16_t k, d;
     uint16_t at = 0u;
+    /* Doppler power summed across subcarriers, before the log compression
+       below. It needs 64 bits, so it cannot share p->doppler[], and it is
+       scratch that does not outlive the call: keeping it here rather than in
+       the context costs 256 bytes of stack once per window and leaves
+       sizeof(qcsi_pipeline) unchanged. */
+    uint64_t power_sum[QCSI_MAX_FFT / 2u];
+    const uint64_t fft_gain = (uint64_t)c->n_fft * (uint64_t)c->n_fft;
 
     /* Amplitude statistics, three per subcarrier. */
     (void)qcsi_amplitude_stats(p->amplitude, c->n_frames, c->n_sub,
@@ -133,7 +134,12 @@ static void build_features(qcsi_pipeline *p)
 
     /* Phase statistics, from the running accumulators. The variance uses
        the (n*sum_sq - sum^2)/n^2 form for the reason in docs/design.md: the
-       textbook form squares a truncated mean and inflates the result. */
+       textbook form squares a truncated mean and inflates the result.
+
+       Layout: every mean first, then every standard deviation, not the two
+       interleaved per subcarrier as the amplitude block above is. The
+       floating-point reference emits the same blocked order; see the note in
+       tools/qcsi_data.py. */
     for (k = 0u; k < c->n_sub; ++k) {
         int64_t n = (int64_t)c->n_frames;
         int64_t sum = (int64_t)p->phase_sum[k];
@@ -141,7 +147,7 @@ static void build_features(qcsi_pipeline *p)
         if (var < 0) var = 0;
         p->features[at + k] = qdsp_sat_q15((int32_t)(sum / n));
         p->features[at + c->n_sub + k] =
-            qdsp_sat_q15((int32_t)isqrt64((uint64_t)var));
+            qdsp_sat_q15((int32_t)qcsi_isqrt64((uint64_t)var));
     }
     at = (uint16_t)(at + 2u * c->n_sub);
 
@@ -150,19 +156,39 @@ static void build_features(qcsi_pipeline *p)
        Bins are averaged across subcarriers to keep the feature count down. */
     (void)qcsi_remove_static_component(p->amplitude, c->n_frames, c->n_sub);
     for (d = 0u; d < c->n_doppler; ++d) {
-        p->features[at + d] = 0;
+        power_sum[d] = 0u;
     }
     for (k = 0u; k < c->n_sub; ++k) {
         (void)qcsi_doppler_power(p->amplitude, c->n_frames, c->n_sub, k,
                                  c->n_fft, p->fft_scratch, p->doppler);
         for (d = 0u; d < c->n_doppler; ++d) {
             /* Bin 0 is skipped: it holds whatever static component survived
-               removal, which is not motion. Power is scaled down before it
-               is folded in, so the running sum cannot overflow Q15. */
-            int32_t v = (int32_t)(p->doppler[d + 1u] >> 15);
-            p->features[at + d] = qdsp_add_q15(p->features[at + d],
-                                               qdsp_sat_q15(v / (int32_t)c->n_sub));
+               removal, which is not motion. The sum is 64-bit and unscaled:
+               n_sub bins of at most 2^31 reach 2^37, and shifting the power
+               down first would zero every bin below 1/65536 of full scale,
+               which is where most of the spectrum lives. */
+            power_sum[d] += (uint64_t)p->doppler[d + 1u];
         }
+    }
+    for (d = 0u; d < c->n_doppler; ++d) {
+        /* Two steps, in this order, and both matter for matching the
+           floating-point reference.
+
+           qdsp's Q15 FFT halves at every stage, so its output is scaled by
+           1/n_fft and the power by 1/n_fft^2. Multiplying that back gives the
+           power of the unnormalised transform of the Q15 amplitudes, which is
+           the quantity tools/qcsi_data.py compresses when it is fed the same
+           amplitudes. It does not recover the precision the halving cost; it
+           puts the value on the reference's scale, which a logarithm cares
+           about because it is not linear.
+
+           Then log(1 + power): Doppler power spans several decades within one
+           window, and a linear classifier on raw power is driven entirely by
+           the loudest bin. The result is Q10 nats, so a full-scale bin at
+           n_fft = 64 lands near 29800 and the feature saturates only above
+           32 nats. */
+        uint64_t mean = power_sum[d] / (uint64_t)c->n_sub;
+        p->features[at + d] = qdsp_sat_q15(qcsi_log1p_q10(mean * fft_gain));
     }
 }
 

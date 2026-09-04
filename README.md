@@ -3,7 +3,7 @@
 [![ci](https://github.com/andrealo20/qcsi/actions/workflows/ci.yml/badge.svg)](https://github.com/andrealo20/qcsi/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![language: C99](https://img.shields.io/badge/language-C99-00599C.svg)](https://en.wikipedia.org/wiki/C99)
-[![tests: 43](https://img.shields.io/badge/tests-43%20passing-brightgreen.svg)](tests/)
+[![tests: 49](https://img.shields.io/badge/tests-49%20passing-brightgreen.svg)](tests/)
 [![sanitizers: ASan + UBSan](https://img.shields.io/badge/sanitizers-ASan%20%2B%20UBSan-brightgreen.svg)](.github/workflows/ci.yml)
 [![no malloc](https://img.shields.io/badge/allocation-none-informational.svg)](#api)
 [![depends on qdsp](https://img.shields.io/badge/depends%20on-qdsp-c2410c.svg)](https://github.com/andrealo20/qdsp)
@@ -16,7 +16,7 @@ Channel State Information: phase sanitisation, feature extraction, and a
 quantised classifier; all in C99, with no dynamic allocation and no floating
 point on the processing path.
 
-43 unit tests. Clean under `-Wall -Wextra -Wpedantic -Wconversion -Werror`,
+49 unit tests. Clean under `-Wall -Wextra -Wpedantic -Wconversion -Werror`,
 AddressSanitizer and UndefinedBehaviorSanitizer.
 
 ---

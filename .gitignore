@@ -7,3 +7,5 @@ compile_commands.json
 data/
 *.mat
 .DS_Store
+__pycache__/
+*.pyc

@@ -55,6 +55,15 @@ extern "C" {
 #ifndef QCSI_MAX_FFT
 #define QCSI_MAX_FFT 64
 #endif
+/* 32 classes is the right default for a microcontroller: the weight table is
+   n_classes * n_features * 2 bytes and it is by far the largest thing a
+   deployment carries. It is a limit on the model, not on the front end, and
+   raising it costs only the score array here plus the caller's own table.
+
+   The SignFi lab_150 experiment behind the accuracies in the README has 150
+   classes and does not fit the default: build it with
+   -DQCSI_MAX_CLASSES=150, and budget 150 * 166 * 2 = 49800 bytes, about 48.6
+   KiB, for the weights themselves. */
 #ifndef QCSI_MAX_CLASSES
 #define QCSI_MAX_CLASSES 32
 #endif
@@ -99,15 +108,19 @@ typedef struct {
  * qcsi_pipeline_push() returns QCSI_PIPELINE_FEATURES_READY instead of a
  * class. That is the mode to use when collecting training data on target.
  *
- * @return QDSP_OK, or QDSP_ERR_ARG if any dimension exceeds its compile-time
- *         limit, the antenna indices are out of range or equal, or n_fft is
- *         not a valid FFT size.
+ * n_sub must be at least 2: the phase is detrended across subcarriers, and a
+ * line fit through a single point is not defined.
+ *
+ * @return QDSP_OK, or QDSP_ERR_ARG if any dimension is below its minimum or
+ *         exceeds its compile-time limit, the antenna indices are out of
+ *         range or equal, or n_fft is not a valid FFT size.
  */
 qdsp_status_t qcsi_pipeline_init(qcsi_pipeline *p,
                                  const qcsi_pipeline_config *cfg,
                                  const qcsi_linear_model *model);
 
-/** Discard accumulated frames, keeping the configuration and model. */
+/** Discard accumulated frames, keeping the configuration and model.
+ *  A null pointer is ignored, as everywhere else in the API. */
 void qcsi_pipeline_reset(qcsi_pipeline *p);
 
 /** Returned by qcsi_pipeline_push() while the window is still filling. */

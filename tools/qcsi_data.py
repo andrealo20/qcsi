@@ -228,13 +228,32 @@ def extract_features(csi, ant_a=0, ant_b=1, n_fft=64, n_doppler=16):
     amp = np.abs(csi[..., ant_a])                    # (inst, pkt, sub)
     stats = amplitude_stats(amp)                     # (inst, sub, 3)
 
+    # Blocked, not interleaved: every mean first, then every standard
+    # deviation. That is the order build_features() in src/pipeline.c writes
+    # them in, and the two have to agree or the C consumes a feature vector
+    # whose second half is permuted with respect to the one the model was
+    # trained on. The amplitude block above is interleaved per subcarrier in
+    # both implementations, so this is the only place the two orders differ.
+    #
+    # Changing the order here does not change any accuracy reported in the
+    # README: the classifier is linear, so permuting the features permutes the
+    # learned weights the same way and every score is identical. It matters
+    # only when a model trained by these tools is handed to the C.
     phase = unwrap_detrend(phase_difference(csi, ant_a, ant_b))
-    phase_stats = np.stack([phase.mean(axis=1), phase.std(axis=1)], axis=-1)
+    phase_stats = np.concatenate([phase.mean(axis=1), phase.std(axis=1)],
+                                 axis=-1)
 
     dop = doppler_power(amp, n_fft)                  # (inst, half, sub)
     dop = dop[:, 1:n_doppler + 1].mean(axis=2)       # average over subcarriers
     # Log compression: Doppler power spans several decades, and a linear
     # classifier on raw power would be driven entirely by the loudest bin.
+    #
+    # Mirrors qcsi_log1p_q10() as applied in build_features(). A logarithm is
+    # not linear, so the two agree only on the same units: the C compresses
+    # the power of the unnormalised transform of the Q15 amplitudes, having
+    # first undone the 1/n_fft scaling its fixed-point FFT applies. Feeding
+    # this function amplitudes on that same integer scale is what makes the
+    # two comparable, and is what tools/gen_parity_vectors.py does.
     dop = np.log1p(dop)
 
     n = csi.shape[0]
