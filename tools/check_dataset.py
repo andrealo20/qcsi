@@ -169,7 +169,7 @@ def circular_std(angles):
 def stats(phase_2d):
     """Offset spread at a middle subcarrier, and spread of per-packet slope.
 
-    Measured over one group of packets that belong together — a single
+    Measured over one group of packets that belong together, a single
     continuous capture. Merging separate captures is what the first version
     of this script did, and it produced a false negative: see below.
     """

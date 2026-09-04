@@ -261,7 +261,7 @@ static void test_detrend_removes_a_known_line(void)
  * change the output: detrend(x + line) == detrend(x).
  *
  * The first version of this test asserted something subtly different and
- * wrong — that a sine survives detrending untouched. It does not: a sine
+ * wrong, that a sine survives detrending untouched. It does not: a sine
  * observed over a non-integer number of periods genuinely has a non-zero
  * least-squares linear component, and removing it is correct behaviour. The
  * test failed, the code was right. Testing the linearity property instead

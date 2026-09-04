@@ -2,8 +2,8 @@
  * Unit tests for feature extraction.
  *
  * As in test_phase.c, the inputs are generated, and for the same reason:
- * what is under test is whether an operator computes what it claims —
- * a variance, a spectrum, a peak location — not whether the system can
+ * what is under test is whether an operator computes what it claims,
+ * a variance, a spectrum, a peak location, not whether the system can
  * recognise human activity. The second claim needs recorded data and is not
  * made here.
  */
@@ -263,7 +263,7 @@ static void test_doppler_zero_padding_scales_the_peak_position(void)
 }
 
 /**
- * Bin 0 is never a candidate, so it is free to mean "bad arguments" — but
+ * Bin 0 is never a candidate, so it is free to mean "bad arguments", but
  * only if a flat spectrum returns something else. It used to return 0 for
  * both, which made the two indistinguishable and contradicted the promise
  * that bin 0 is skipped.

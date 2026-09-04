@@ -68,7 +68,7 @@ typedef enum {
  * The spread is returned as a standard deviation rather than a variance,
  * and that is a correction rather than a preference. A variance is a squared
  * quantity, so in Q15 it quantises as the square of the signal level: with a
- * 1% amplitude ripple — an ordinary figure for CSI — the stored variance
+ * 1% amplitude ripple, an ordinary figure for CSI, the stored variance
  * lands on 1.64 and rounds to 2, a 22% error, and by 0.5% ripple it rounds
  * to zero and the feature disappears entirely. Taking the square root first
  * puts the quantity back on the same scale as the signal, where Q15 has

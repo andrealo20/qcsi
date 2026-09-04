@@ -69,7 +69,7 @@ def load_subjects(path, max_per_subject=None, verbose=True):
 
     If the file holds several CSI variables they are treated as separate
     subjects, which is what makes an honest subject-wise split possible. If
-    it holds one, everything is one subject and the caller is told so — an
+    it holds one, everything is one subject and the caller is told so, an
     accuracy figure from a single-subject split is not comparable to a
     subject-wise one and should not be presented as if it were.
     """
@@ -164,7 +164,7 @@ def load_subjects(path, max_per_subject=None, verbose=True):
 
 
 # ---------------------------------------------------------------------------
-# Reference pipeline — mirrors the C implementation stage by stage
+# Reference pipeline: mirrors the C implementation stage by stage
 # ---------------------------------------------------------------------------
 
 def phase_difference(csi, ant_a, ant_b):

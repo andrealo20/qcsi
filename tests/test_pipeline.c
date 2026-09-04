@@ -269,7 +269,7 @@ static void test_two_contexts_do_not_interfere(void)
 
 /**
  * Different Doppler rates must produce different feature vectors. This is
- * not an accuracy claim — that needs recorded data — but without it the
+ * not an accuracy claim, that needs recorded data, but without it the
  * pipeline could be wired up perfectly and still carry no information.
  */
 static void test_different_motion_gives_different_features(void)
