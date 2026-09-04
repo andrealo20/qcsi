@@ -68,3 +68,19 @@ jobs:
 
       - name: Run
         run: ./build-bench/bench/qcsi_bench | tee -a "$GITHUB_STEP_SUMMARY"
+
+  readme:
+    name: readme consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The quantisation table quotes raw counts and derived columns side by
+      # side, so a table edited by hand and left half-updated is detectable
+      # without needing the dataset.
+      - name: Check the README tables against themselves
+        run: python3 tools/check_readme.py

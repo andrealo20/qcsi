@@ -143,7 +143,9 @@ the same disagreements split by decision margin — the Q15 and Q12 bars are
 zero rather than missing. Disagreements stay entirely in the narrow-margin
 half until Q6, which is the signature of precision loss.*
 
-SignFi lab_150, within-subject, 2250 test samples, 150 classes:
+SignFi lab_150, within-subject, 2250 test samples, 150 classes, in the
+evaluation configuration: a 64-point Doppler FFT keeping 16 bins, so 166
+features. This is not the configuration the cost table further down uses.
 
 | Word length | Accuracy | Change | Disagreements | Narrow margin | Wide margin |
 |---|---|---|---|---|---|
@@ -195,16 +197,36 @@ implementation rather than the accuracy.
 
 ## Cost and footprint
 
-30 subcarriers, 3 antennas, 32-frame window, 32-point Doppler FFT:
+Two configurations appear in this README and they are not the same one. The
+costs here are the **bench configuration**: 30 subcarriers, 3 antennas, a
+32-frame window and a 32-point Doppler FFT keeping 8 bins, so
+`30 * 5 + 8 = 158` features. The accuracy figures above come from the
+**evaluation configuration**, a 64-point FFT keeping 16 bins, so 166 features.
+A 32-point FFT cannot produce 166 of them, because `n_doppler` has to stay
+below `n_fft / 2`.
 
 | | Per window | Per frame |
 |---|---|---|
-| multiply-accumulate | 13,440 | 420 |
+| multiply-accumulate, front end | 13,440 | 420 |
 | accumulator → Q15 | 6,720 | 210 |
+
+That front-end figure excludes the classifier, which the bench used to run
+without. The classifier costs exactly `n_classes * n_features`
+multiply-accumulates per window, with no data-dependent branches, so it needs
+no measurement: for the 150-class model that is `150 * 158 = 23,700` per
+window, or 741 per frame, more than the entire front end. `qcsi_bench` now
+reports both figures.
 
 Static context: **34.3 KiB**, of which 32 KiB is an amplitude window sized
 for the compile-time maximum (64 subcarriers, 256 frames) rather than for
 this configuration, which needs 1.9 KiB.
+
+The weight table is not counted in that context, because it belongs to the
+caller rather than to the pipeline. At 150 classes and 166 features it is
+`150 * 166 * 2 = 48.6 KiB`, larger than everything else put together, and it
+is the figure a deployment actually has to find room for. `QCSI_MAX_CLASSES`
+defaults to 32, which is the right size for a microcontroller; reproducing the
+150-class experiment needs `-DQCSI_MAX_CLASSES=150`.
 
 > **These are operation counts, not cycle counts.** They are exact and
 > architecture-independent, which is what makes them worth watching for
@@ -279,13 +301,21 @@ antenna, upstream — which leaves this front end with nothing to remove. Step
 ```c
 #include "qcsi/pipeline.h"
 
+/* Weights and biases come from tools/build_baseline.py, which folds the
+   training scaler into them so the C side stays a plain w.x + b. */
+extern const q15_t model_weights[];          /* n_classes * n_features */
+extern const q63_t model_bias[];             /* n_classes */
+
 static qcsi_pipeline pipe;                   /* 34 KiB, static storage */
+static qcsi_linear_model model;
+
 qcsi_pipeline_config cfg = {
     .n_sub = 30, .n_frames = 32, .n_fft = 32, .n_doppler = 8,
     .ant_a = 0, .ant_b = 1, .n_ant = 3       /* measure the pair first */
 };
 
-qcsi_pipeline_init(&pipe, &cfg, &model);
+qcsi_linear_init(&model, model_weights, model_bias, N_CLASSES, 30 * 5 + 8);
+qcsi_pipeline_init(&pipe, &cfg, &model);     /* NULL for features only */
 
 for (;;) {
     int r = qcsi_pipeline_push(&pipe, frame);   /* n_sub * n_ant complex */
