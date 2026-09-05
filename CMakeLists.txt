@@ -25,6 +25,18 @@ set(QDSP_BENCH      OFF CACHE BOOL "" FORCE)
 set(QDSP_EXAMPLES   OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(qdsp)
 
+# qdsp's FFT calls cosf and the project does not link libm itself, so every
+# consumer has to supply it. Attaching it to the qdsp target is what puts it
+# in the right place: CMake emits a target's interface libraries immediately
+# after the target, so libm always follows libqdsp on the link line. Declaring
+# it on qcsi instead left the two as siblings, in an order CMake was free to
+# choose, and it chose wrong for exactly one executable.
+include(CheckLibraryExists)
+check_library_exists(m cos "" QCSI_HAVE_LIBM)
+if(QCSI_HAVE_LIBM AND TARGET qdsp)
+    target_link_libraries(qdsp PUBLIC m)
+endif()
+
 add_library(qcsi
     src/phase.c
     src/cordic_table.c
