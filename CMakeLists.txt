@@ -40,6 +40,18 @@ target_include_directories(qcsi PUBLIC
 
 target_link_libraries(qcsi PUBLIC qdsp)
 
+# qdsp's FFT uses cosf, so libm has to appear after libqdsp on the link line.
+# Declaring it here rather than on each executable is what keeps the order
+# right: every consumer inherits it through qcsi, after qdsp, because that is
+# the order these two are declared in. Attaching it per test target instead
+# left it to chance, and test_parity was the one where the chance came up
+# wrong.
+include(CheckLibraryExists)
+check_library_exists(m cos "" QCSI_HAVE_LIBM)
+if(QCSI_HAVE_LIBM)
+    target_link_libraries(qcsi PUBLIC m)
+endif()
+
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(qcsi PRIVATE
         -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wstrict-prototypes)
