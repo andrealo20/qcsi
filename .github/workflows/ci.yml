@@ -23,8 +23,25 @@ jobs:
           CC: ${{ matrix.cc }}
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DQCSI_WERROR=ON
 
+      # The compiler and linker diagnostics are copied into the job summary
+      # and emitted as an annotation on failure. Both are readable on the run
+      # page, so a broken build says what broke instead of only reporting an
+      # exit code.
       - name: Build
-        run: cmake --build build --parallel
+        run: |
+          set +e
+          cmake --build build --parallel 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### Build output"
+              echo '```'
+              tail -c 60000 build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            python3 -c "import re;log=open('build.log',errors='replace').read();hits=[m.start() for m in re.finditer(r'error:|Error 1|undefined reference',log)];s=log[max(0,hits[0]-1000):hits[0]+2200] if hits else log[-2200:];print('::error title=Build failed::'+s.replace(chr(10),'%0A'))"
+          fi
+          exit "$status"
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
